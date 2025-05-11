@@ -33,19 +33,28 @@ spec:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
           effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: registry.k8s.io/sig-storage/csi-provisioner:v3.6.2
+          image: registry.k8s.io/sig-storage/csi-provisioner:v5.2.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
-            - "--leader-election-namespace=kube-system"
+            - "--leader-election-namespace=$(POD_NAMESPACE)"
             - "--extra-create-metadata=true"
+            - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--timeout=1200s"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
@@ -55,17 +64,54 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-        - name: csi-snapshotter
-          image: registry.k8s.io/sig-storage/csi-snapshotter:v6.3.2
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: csi-resizer
+          image: registry.k8s.io/sig-storage/csi-resizer:v1.13.2
           args:
-            - "--v=2"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election-namespace=kube-system"
-            - "--leader-election"
-            - "--timeout=1200s"
+            - "-csi-address=$(ADDRESS)"
+            - "-v=2"
+            - "-leader-election"
+            - "--leader-election-namespace=$(POD_NAMESPACE)"
+            - '-handle-volume-inuse-error=false'
           env:
             - name: ADDRESS
               value: /csi/csi.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            limits:
+              memory: 400Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: csi-snapshotter
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v8.2.1
+          args:
+            - "--v=2"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election-namespace=$(POD_NAMESPACE)"
+            - "--leader-election"
+            - "--timeout=1200s"
+            - "--retry-interval-max=30m"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: socket-dir
@@ -76,12 +122,16 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: liveness-probe
-          image: registry.k8s.io/sig-storage/livenessprobe:v2.11.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.15.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29652
+            - --http-endpoint=localhost:29652
             - --v=2
           volumeMounts:
             - name: socket-dir
@@ -92,12 +142,18 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: nfs
           image: gcr.io/k8s-staging-sig-storage/nfsplugin:canary
           securityContext:
             privileged: true
             capabilities:
               add: ["SYS_ADMIN"]
+              drop:
+                - ALL
             allowPrivilegeEscalation: true
           imagePullPolicy: IfNotPresent
           args:
@@ -111,15 +167,12 @@ spec:
                   fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
-          ports:
-            - containerPort: 29652
-              name: healthz
-              protocol: TCP
           livenessProbe:
             failureThreshold: 5
             httpGet:
+              host: localhost
               path: /healthz
-              port: healthz
+              port: 29652
             initialDelaySeconds: 30
             timeoutSeconds: 10
             periodSeconds: 30

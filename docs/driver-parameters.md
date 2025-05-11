@@ -28,6 +28,14 @@ volumeAttributes.server | NFS Server address | domain name `nfs-server.default.s
 volumeAttributes.share | NFS share path | `/` |  Yes  |
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0`, if set as non-zero, driver will perform `chmod` after mount |  | No |
 
+### `VolumeSnapshotClass`
+
+Name | Meaning | Available Value | Mandatory | Default value
+--- | --- | --- | --- | ---
+server | NFS Server address | domain name `nfs-server.default.svc.cluster.local` <br>or IP address `127.0.0.1` |  No | use server from source volume by default
+share | NFS share path | `/` | No | use share from source volume by default
+mountOptions | mount options separated by comma during snapshot creation, e.g. `"nfsvers=4.1,sec=sys"` |  | No | ""
+
 ### Tips
 #### `subDir` parameter supports following pv/pvc metadata conversion
 > if `subDir` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
@@ -35,8 +43,8 @@ volumeAttributes.mountPermissions | mounted folder permissions. The default is `
  - `${pvc.metadata.namespace}`
  - `${pv.metadata.name}`
 
-#### provide `mountOptions` for `DeleteVolume`
-> since `DeleteVolumeRequest` does not provide `mountOptions`, following is the workaround to provide `mountOptions` for `DeleteVolume`, check details [here](https://github.com/kubernetes-csi/csi-driver-nfs/issues/260)
+#### provide `mountOptions` for `DeleteVolume` and `DeleteSnapshot`
+> since `DeleteVolumeRequest` and `DeleteSnapshotRequest` does not provide `mountOptions`, following is the workaround to provide `mountOptions` for `DeleteVolume` and `DeleteSnapshot`, check details [here](https://github.com/kubernetes-csi/csi-driver-nfs/issues/260)
   - create a secret with `mountOptions`
 ```console
 kubectl create secret generic mount-options --from-literal mountOptions="nfsvers=3,hard"
@@ -56,6 +64,20 @@ parameters:
   csi.storage.k8s.io/provisioner-secret-namespace: "default"
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+allowVolumeExpansion: true
 mountOptions:
   - nfsvers=4.1
+```
+  - define a storage class with `csi.storage.k8s.io/snapshotter-secret-name` and `csi.storage.k8s.io/snapshotter-secret-namespace` setting:
+```yaml
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-nfs-snapclass
+driver: nfs.csi.k8s.io
+deletionPolicy: Delete
+parameters:
+  # csi.storage.k8s.io/snapshotter-secret is only needed for providing mountOptions in DeleteSnapshot
+  csi.storage.k8s.io/snapshotter-secret-name: "mount-options"
+  csi.storage.k8s.io/snapshotter-secret-namespace: "default"
 ```

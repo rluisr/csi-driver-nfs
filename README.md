@@ -1,6 +1,7 @@
 # NFS CSI driver for Kubernetes
 ![build status](https://github.com/kubernetes-csi/csi-driver-nfs/actions/workflows/linux.yaml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/kubernetes-csi/csi-driver-nfs/badge.svg?branch=master)](https://coveralls.io/github/kubernetes-csi/csi-driver-nfs?branch=master)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/csi-driver-nfs)](https://artifacthub.io/packages/search?repo=csi-driver-nfs)
 
 ### Overview
 
@@ -12,12 +13,12 @@ This is a repository for [NFS](https://en.wikipedia.org/wiki/Network_File_System
 |driver version  | supported k8s version | status |
 |----------------|-----------------------|--------|
 |master branch   | 1.21+                 | GA     |
-|v4.5.0          | 1.21+                 | GA     |
-|v4.4.0          | 1.21+                 | GA     |
-|v4.3.0          | 1.21+                 | GA     |
+|v4.11.0         | 1.21+                 | GA     |
+|v4.10.0         | 1.21+                 | GA     |
+|v4.9.0          | 1.21+                 | GA     |
 
 ### Install driver on a Kubernetes cluster
- > [install NFS CSI driver on microk8s](https://microk8s.io/docs/nfs)
+ > [install NFS CSI driver on microk8s](https://microk8s.io/docs/how-to-nfs)
  - install via [helm charts](./charts)
  - install via [kubectl](./docs/install-nfs-csi-driver.md)
 
